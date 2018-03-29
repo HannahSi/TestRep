@@ -1,3 +1,6 @@
 Hi Clara!
 Hello Hannah
-How are you
+
+git add .
+git commit -m ""
+git push origin master
