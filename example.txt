@@ -1,8 +1,9 @@
-Hi Clara!
-Hi Hannah
+It's rainy
 
 git add .
 git commit -m ""
 git push
-git push origin master (might prompt for password)
+git push origin master
 git pull
+
+git merge 
