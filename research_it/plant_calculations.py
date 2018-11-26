@@ -18,14 +18,12 @@ max_rpm = 95 * u.rev/u.min
 def ID_colored_tube(color):
     """This function looks up the inner diameter (ID) of a Masterflex 3-stop
     tube given the color of its tags.
-    Parameters
-    ----------
-    color : string
+
+    :param color : string
         color of the tubing to be used
-    Returns
-    -------
-    float
+    :return float:
         diameter of the tubing (mm)
+
     Examples
     --------
     >>> ID_colored_tube("yellow-blue")

@@ -1,0 +1,466 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>research_it.plant_calculations &mdash; TestRep 0.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> TestRep
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../plant_calculations.html">Plant Calculations</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">TestRep</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>research_it.plant_calculations</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for research_it.plant_calculations</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">aide_design.shared.units</span> <span class="k">import</span> <span class="n">unit_registry</span> <span class="k">as</span> <span class="n">u</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="c1"># pump rotor radius based on minimizing error between predicted and measured</span>
+<span class="c1"># values</span>
+<span class="n">R_pump</span> <span class="o">=</span> <span class="mf">1.62</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">cm</span>
+
+<span class="c1"># empirically derived correction factor due to the fact that larger diameter</span>
+<span class="c1"># tubing has more loss due to space smashed by rollers</span>
+<span class="n">k_nonlinear</span> <span class="o">=</span> <span class="mi">13</span>
+
+<span class="c1"># maximum and minimum rpms for a 100 rpm pump</span>
+<span class="n">min_rpm</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">rev</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">min</span>
+<span class="n">max_rpm</span> <span class="o">=</span> <span class="mi">95</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">rev</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">min</span>
+
+
+<div class="viewcode-block" id="ID_colored_tube"><a class="viewcode-back" href="../../plant_calculations.html#research_it.plant_calculations.ID_colored_tube">[docs]</a><span class="k">def</span> <span class="nf">ID_colored_tube</span><span class="p">(</span><span class="n">color</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function looks up the inner diameter (ID) of a Masterflex 3-stop</span>
+<span class="sd">    tube given the color of its tags.</span>
+
+<span class="sd">    :param color : string</span>
+<span class="sd">        color of the tubing to be used</span>
+<span class="sd">    :return float:</span>
+<span class="sd">        diameter of the tubing (mm)</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; ID_colored_tube(&quot;yellow-blue&quot;)</span>
+<span class="sd">    1.52 millimeter</span>
+<span class="sd">    &gt;&gt;&gt; ID_colored_tube(&quot;orange-yellow&quot;)</span>
+<span class="sd">    0.51 millimeter</span>
+<span class="sd">    &gt;&gt;&gt; ID_colored_tube(&quot;purple-white&quot;)</span>
+<span class="sd">    2.79 millimeter</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;tubing_data.txt&quot;</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Color&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">color</span>
+    <span class="k">return</span> <span class="n">df</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="s1">&#39;Diameter (mm)&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">mm</span></div>
+
+
+<div class="viewcode-block" id="volPerRev_small"><a class="viewcode-back" href="../../plant_calculations.html#research_it.plant_calculations.volPerRev_small">[docs]</a><span class="k">def</span> <span class="nf">volPerRev_small</span><span class="p">(</span><span class="n">color</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function calculates the volume per revolution of a 6 roller pump</span>
+<span class="sd">    given the tag colors of the Masterflex 3-stop tubing being used.</span>
+<span class="sd">    The calculation was empirically derived using the table found at</span>
+<span class="sd">    http://www.ismatec.com/int_e/pumps/t_mini_s_ms_ca/tubing_msca2.htm</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    color : string</span>
+<span class="sd">        color of the tubing to be used</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        flow from the 6 roller pump (mL/rev)</span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+
+<span class="sd">    ////////////TODO : change inputs to colors///////////////</span>
+
+<span class="sd">    &gt;&gt;&gt; volPerRev_small(2.79*u.mm)</span>
+<span class="sd">    0.4005495805189351 milliliter/rev</span>
+<span class="sd">    &gt;&gt;&gt; volPerRev_small(1.52*u.mm)</span>
+<span class="sd">    0.14884596727278446 milliliter/rev</span>
+<span class="sd">    &gt;&gt;&gt; volPerRev_small(0.51*u.mm)</span>
+<span class="sd">    0.01943899117521222 milliliter/rev</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">inner_diameter</span> <span class="o">=</span> <span class="n">ID_colored_tube</span><span class="p">(</span><span class="n">color</span><span class="p">)</span>
+    <span class="n">distance</span> <span class="o">=</span> <span class="p">(</span><span class="n">R_pump</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">-</span> <span class="n">k_nonlinear</span> <span class="o">*</span> <span class="n">inner_diameter</span><span class="p">)</span> <span class="o">/</span> <span class="n">u</span><span class="o">.</span><span class="n">rev</span>
+    <span class="n">area</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">inner_diameter</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">distance</span> <span class="o">*</span> <span class="n">area</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">mL</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">rev</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">pump_flow</span><span class="p">(</span><span class="n">vol_per_rev</span><span class="p">,</span> <span class="n">rpm</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">vol_per_rev</span> <span class="o">*</span> <span class="n">rpm</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">mL</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">pump_rpm</span><span class="p">(</span><span class="n">vol_per_rev</span><span class="p">,</span> <span class="n">flow_rate</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">flow_rate</span> <span class="o">/</span> <span class="n">vol_per_rev</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rev</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">min</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="C_stock"><a class="viewcode-back" href="../../plant_calculations.html#research_it.plant_calculations.C_stock">[docs]</a><span class="k">def</span> <span class="nf">C_stock</span><span class="p">(</span><span class="n">Q_plant</span><span class="p">,</span> <span class="n">C_plant</span><span class="p">,</span> <span class="n">pump_flow</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function calculates the stock concentration of a generic</span>
+<span class="sd">    material given desired concentration in the plant.</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Q_plant : float</span>
+<span class="sd">        flow rate of the plant</span>
+<span class="sd">    C : float</span>
+<span class="sd">        desired concentration of the material within the plant</span>
+<span class="sd">    tubing_color : string</span>
+<span class="sd">        color of the tubing to be used</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        maximum stock concentration (g/L)</span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; C_stock_max(7*u.mL/u.s, 100*u.NTU, &quot;yellow-blue&quot;)</span>
+<span class="sd">    159.89684125188708 gram/liter</span>
+<span class="sd">    &gt;&gt;&gt; C_stock_max(7*u.mL/u.s, 2*u.mg/u.L, &quot;orange-yellow&quot;)</span>
+<span class="sd">    14.404039668326215 gram/liter</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">Q_plant</span> <span class="o">*</span> <span class="n">C_plant</span> <span class="o">/</span> <span class="n">pump_flow</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">mg</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">L</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="dilution_factor"><a class="viewcode-back" href="../../plant_calculations.html#research_it.plant_calculations.dilution_factor">[docs]</a><span class="k">def</span> <span class="nf">dilution_factor</span><span class="p">(</span><span class="n">C_stock</span><span class="p">,</span> <span class="n">C_super_stock</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    C_stock : float</span>
+<span class="sd">        concentration of the stock solution connected to the pump</span>
+<span class="sd">    C_super_stock : float</span>
+<span class="sd">        concentration of the super stock solution from which stock is made</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">C_stock</span> <span class="o">/</span> <span class="n">C_super_stock</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">mL</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">L</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Q_stock"><a class="viewcode-back" href="../../plant_calculations.html#research_it.plant_calculations.Q_stock">[docs]</a><span class="k">def</span> <span class="nf">Q_stock</span><span class="p">(</span><span class="n">Q_plant</span><span class="p">,</span> <span class="n">C_plant</span><span class="p">,</span> <span class="n">C_stock</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function calculates the flow rate of the stock of the desired</span>
+<span class="sd">    concentration.</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Q_plant : float</span>
+<span class="sd">        flow rate of the plant</span>
+<span class="sd">    C : float</span>
+<span class="sd">        desired concentration within the plant</span>
+<span class="sd">    tubing_color : string</span>
+<span class="sd">        color of the tubing to be used</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        flow rate of the stock (mL/s)</span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; Q_stock_max(7*u.mL/u.s, 100*u.NTU, &quot;yellow-blue&quot;)</span>
+<span class="sd">    0.007442298363639224 milliliter/second</span>
+<span class="sd">    &gt;&gt;&gt; Q_stock_max(7*u.mL/u.s, 2*u.mg/u.L, &quot;orange-yellow&quot;)</span>
+<span class="sd">    0.0009719495587606109 milliliter/second</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">Q_plant</span> <span class="o">*</span> <span class="n">C_plant</span> <span class="o">/</span> <span class="n">C_stock</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">mL</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="T_stock"><a class="viewcode-back" href="../../plant_calculations.html#research_it.plant_calculations.T_stock">[docs]</a><span class="k">def</span> <span class="nf">T_stock</span><span class="p">(</span><span class="n">Q_plant</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">tubing_color</span><span class="p">,</span> <span class="n">V_stock</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function calculates the time after the experiment at which the</span>
+<span class="sd">    stock container will run out.</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Q_plant : float</span>
+<span class="sd">        flow rate of the plant</span>
+<span class="sd">    C : float</span>
+<span class="sd">        desired concentration within the plant</span>
+<span class="sd">    tubing_color : string</span>
+<span class="sd">        color of the tubing to be used</span>
+<span class="sd">    V_stock : float</span>
+<span class="sd">        volume of the stock container</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        time before the stock is depleted (hr)</span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; T_stock(7*u.mL/u.s, 100*u.NTU, &quot;yellow-blue&quot;, 1*u.L)</span>
+<span class="sd">    37.324192635827984 hour</span>
+<span class="sd">    &gt;&gt;&gt; T_stock(7*u.mL/u.s, 2*u.mg/u.L, &quot;orange-yellow&quot;, 1*u.L)</span>
+<span class="sd">    285.79443786361537 hour</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">V_stock</span> <span class="o">/</span> <span class="n">Q_stock_max</span><span class="p">(</span><span class="n">Q_plant</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">tubing_color</span><span class="p">))</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">hr</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="M_stock"><a class="viewcode-back" href="../../plant_calculations.html#research_it.plant_calculations.M_stock">[docs]</a><span class="k">def</span> <span class="nf">M_stock</span><span class="p">(</span><span class="n">Q_plant</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">tubing_color</span><span class="p">,</span> <span class="n">V_stock</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The mass of the material required to reach the desired stock</span>
+<span class="sd">    concentration.</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Q_plant : float</span>
+<span class="sd">        flow rate of the plant</span>
+<span class="sd">    C : float</span>
+<span class="sd">        desired concentration within the plant</span>
+<span class="sd">    tubing_color : string</span>
+<span class="sd">        color of the tubing to be used</span>
+<span class="sd">    V_stock : float</span>
+<span class="sd">        volume of the stock container</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        mass of material to be added to the stock container</span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; M_stock(7*u.mL/u.s, 100*u.NTU, &quot;yellow-blue&quot;, 1*u.L)</span>
+<span class="sd">    159.89684125188708 gram</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">C_stock_max</span><span class="p">(</span><span class="n">Q_plant</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">tubing_color</span><span class="p">)</span> <span class="o">*</span> <span class="n">V_stock</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">g</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="V_super_stock"><a class="viewcode-back" href="../../plant_calculations.html#research_it.plant_calculations.V_super_stock">[docs]</a><span class="k">def</span> <span class="nf">V_super_stock</span><span class="p">(</span><span class="n">Q_plant</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">tubing_color</span><span class="p">,</span> <span class="n">V_stock</span><span class="p">,</span> <span class="n">C_super_stock</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The volume of super stock added to the stock container to reach the</span>
+<span class="sd">    desired concentration within the plant.</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Q_plant : float</span>
+<span class="sd">        flow rate of the plant</span>
+<span class="sd">    C : float</span>
+<span class="sd">        desired concentration within the plant</span>
+<span class="sd">    tubing_color : string</span>
+<span class="sd">        color of the tubing to be used</span>
+<span class="sd">    V_stock : float</span>
+<span class="sd">        volume of the stock container</span>
+<span class="sd">    C_super_stock : float</span>
+<span class="sd">        concentration of the super stock to be diluted down to the</span>
+<span class="sd">        stock solution</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        volume of super stock to be added to the stock container</span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; V_super_stock(7*u.mL/u.s, 2*u.mg/u.L, &quot;orange-yellow&quot;, 1*u.L, 69.4*u.g/u.L)</span>
+<span class="sd">    207.55100386637196 milliliter</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">C_stock</span> <span class="o">=</span> <span class="n">C_stock_max</span><span class="p">(</span><span class="n">Q_plant</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">tubing_color</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">V_stock</span> <span class="o">*</span> <span class="n">C_stock</span> <span class="o">/</span> <span class="n">C_super_stock</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">mL</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Q_water"><a class="viewcode-back" href="../../plant_calculations.html#research_it.plant_calculations.Q_water">[docs]</a><span class="k">def</span> <span class="nf">Q_water</span><span class="p">(</span><span class="n">Q_plant</span><span class="p">,</span> <span class="n">C_clay</span><span class="p">,</span> <span class="n">C_pacl_min</span><span class="p">,</span> <span class="n">tubing_clay</span><span class="p">,</span> <span class="n">tubing_pacl</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function calculates the required flow rate for water from the tap</span>
+<span class="sd">    for the experiment.</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Q_plant : float</span>
+<span class="sd">        flow rate of the plant</span>
+<span class="sd">    C_clay : float</span>
+<span class="sd">        concentration of clay to be added, i.e. the desired influent turbidity</span>
+<span class="sd">    C_pacl_max : float</span>
+<span class="sd">        minimum coagulant dose of the mixed water in the flocculator</span>
+<span class="sd">    tubing_clay</span>
+<span class="sd">        color of the tubing to be used for the clay stock</span>
+<span class="sd">    tubing_clay</span>
+<span class="sd">        color of the tubing to be used for the PACL stock</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        required flow rate for water for the experiment if it were coming from</span>
+<span class="sd">        a tap</span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; Q_water(7*u.mL/u.s, 100*u.NTU, 0.2*u.mg/u.L, &quot;yellow-blue&quot;, &quot;orange-yellow&quot;)</span>
+<span class="sd">    419.49514512465606 milliliter/minute</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">Q_plant</span> <span class="o">-</span> <span class="n">Q_stock_max</span><span class="p">(</span><span class="n">Q_plant</span><span class="p">,</span> <span class="n">C_clay</span><span class="p">,</span> <span class="n">tubing_clay</span><span class="p">)</span> <span class="o">-</span>
+            <span class="n">Q_stock_max</span><span class="p">(</span><span class="n">Q_plant</span><span class="p">,</span> <span class="n">C_pacl_max</span><span class="p">,</span> <span class="n">tubing_pacl</span><span class="p">))</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">mL</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">min</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="pump_rpm"><a class="viewcode-back" href="../../plant_calculations.html#research_it.plant_calculations.pump_rpm">[docs]</a><span class="k">def</span> <span class="nf">pump_rpm</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">tubing_color</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function calculates the RPMs required for a given flow rate and</span>
+<span class="sd">    tube color.</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Q : float</span>
+<span class="sd">        desired flow rate</span>
+<span class="sd">    tubing_color</span>
+<span class="sd">        color of the tubing to be used</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        revolutions per minute to set the pump to for the desired flow rate</span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; pump_rpm(0.01*u.mL/u.s, &quot;yellow-blue&quot;)</span>
+<span class="sd">    4.031012804669423 rev/minute</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">flow_per_rev</span> <span class="o">=</span> <span class="n">volPerRev_small</span><span class="p">(</span><span class="n">ID_colored_tube</span><span class="p">(</span><span class="n">tubing_color</span><span class="p">))</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">Q</span> <span class="o">/</span> <span class="n">flow_per_rev</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">rev</span><span class="o">/</span><span class="n">u</span><span class="o">.</span><span class="n">min</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Hannah Si
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../_static/doctools.js"></script>
+    
+
+  
+
+  <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
