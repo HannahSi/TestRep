@@ -1,4 +1,24 @@
-#####Testing pandas functions
+```python
+import matplotlib.pyplot as plt
+
+hour = [1, 2, 3, 4, 8, 10]
+trial1 = [7.4, 5.8, 2.1, 0.5, 5.7, 10.1]
+trial2 = [6.5, 4.9, 3, 2, 5.1, 9.4]
+
+plt.plot(hour, trial1, "ro")
+plt.plot(hour, trial2, "bs")
+plt.xlabel("Time (hr)")
+plt.ylabel("Water Height (m)")
+plt.legend(("Trial 1", "Trial 2"))
+plt.savefig("/Users/HannahSi/Documents/Atom/aguaclara_tutorial/docs/source/research/Images/Data_Analysis/legend_labels.png")
+
+plt.plot(hour, hour)
+plt.legend("h")
+```
+
+
+
+#### Testing pandas functions
 ```python
 import pandas as pd
 
